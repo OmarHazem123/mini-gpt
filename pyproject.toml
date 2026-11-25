@@ -25,6 +25,7 @@ dev = [
 
 [project.scripts]
 mini-gpt-train = "mini_gpt.train:main"
+mini-gpt-sample = "mini_gpt.sample:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -46,7 +46,7 @@ The focus is **numerical engineering**:
     sequence.
   - A new run refuses to overwrite an existing one unless you pass `--resume` or
     `--force`.
-- **80 pytest tests.** They run on CPU, plus 3 extra CUDA tests, in about 30 s.
+- **83 pytest tests.** 80 run on CPU and 3 more need CUDA. The suite takes about 30 s.
 
 ---
 
@@ -123,6 +123,9 @@ python tasks.py test
 # 3. Train (TinyShakespeare is downloaded to data/ on the first run)
 python tasks.py train
 
+# 4. Generate text with the trained model (see "Generating text" below)
+python tasks.py sample --prompt "ROMEO:" --tokens 300
+
 # Override any config value; resume or restart a run
 python tasks.py train -o training.max_iters=500 -o optimizer.lr=6e-4
 python tasks.py train --resume        # continue from checkpoints/last.pt
@@ -135,6 +138,7 @@ in the `Makefile` for GNU Make users (Linux/macOS, or Git Bash on Windows after
 
 ```bash
 make setup    make test ARGS="-k causal -v"    make train ARGS="--resume"    make lint
+make sample ARGS='--prompt "ROMEO:" --tokens 300'
 ```
 
 A run writes to `checkpoints/`:
@@ -144,6 +148,43 @@ A run writes to `checkpoints/`:
 * `metrics.jsonl`: per-step loss, learning rate, gradient norm, loss scale, throughput and
   peak memory, plus eval records.
 * `train.log`: the run's log.
+
+---
+
+## Generating text ([`sample.py`](src/mini_gpt/sample.py))
+
+A checkpoint stores the weights, the model config and the character vocabulary, so
+generating text needs only the `.pt` file. No config file or dataset is required.
+
+```bash
+python tasks.py sample                                        # 500 characters from checkpoints/best.pt
+python tasks.py sample --prompt "ROMEO:" --tokens 300         # continue a prompt
+python tasks.py sample --prompt "JULIET:" --top-k 10 --seed 7 # more conservative, another seed
+python tasks.py sample --temperature 0                        # greedy decoding
+python tasks.py sample > sample.txt                           # text to stdout, header to stderr
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--checkpoint` | `checkpoints/best.pt` | Checkpoint to load (`last.pt` holds the final weights) |
+| `--prompt` | a newline | Text to continue. It may only use characters seen in training |
+| `--tokens` | 500 | Number of characters to generate |
+| `--temperature` | 0.8 | Lower is safer and more repetitive, higher is more varied; `0` is greedy |
+| `--top-k` | off | Sample only from the k most likely next characters |
+| `--seed` | 1337 | The same seed, checkpoint and device give the same text |
+| `--device` | `auto` | `auto`, `cpu`, `cuda` or `cuda:N` |
+
+With the defaults and `--checkpoint checkpoints/last.pt`, the command reproduces the
+sample printed at the end of training character for character. A test checks this.
+
+From Python:
+
+```python
+from mini_gpt.sample import generate_text, load_model
+
+model, tokenizer, ckpt = load_model("checkpoints/best.pt", device="cpu")  # or "cuda"; eval mode
+print(generate_text(model, tokenizer, "ROMEO:", 300, temperature=0.8, top_k=40))
+```
 
 ---
 
@@ -231,7 +272,7 @@ conservative micro-batch of 16 costs about 3% throughput against 64 and leaves a
 ## Test suite ([`tests/`](tests))
 
 ```bash
-python tasks.py test          # 80 tests: CPU-only machines skip the 3 CUDA tests
+python tasks.py test          # 83 tests: CPU-only machines skip the 3 CUDA tests
 ```
 
 | Area | What is checked |
@@ -243,6 +284,7 @@ python tasks.py test          # 80 tests: CPU-only machines skip the 3 CUDA test
 | Training mechanics | LR schedule, gradient accumulation = full batch, NaN step skipping, clipping, fp16 scaler back-off and recovery |
 | Infrastructure | Config validation and overrides, tokenizer, batching, checkpoint and RNG round-trip, bitwise-reproducible seeding, hardware-aware precision on 10 simulated GPUs |
 | End to end | Training on a synthetic corpus (CPU and CUDA fp16), resume, overwrite protection, `--force` |
+| Sampling | Generating from `last.pt` reproduces the end-of-training sample exactly; seeded CLI output repeats; clear errors for a missing checkpoint, unknown prompt characters and bad options |
 
 ---
 
@@ -253,7 +295,8 @@ configs/default.yaml        Hyperparameters (model / data / training / optimizer
 src/mini_gpt/model.py       LayerNorm, CausalSelfAttention, FeedForward, TransformerBlock, MiniGPT
 src/mini_gpt/train.py       Config dataclasses, LR schedule, AMP training loop, CLI
 src/mini_gpt/utils.py       Seeding, device/precision selection, checkpoints, tokenizer, data
-tests/                      pytest suite (test_model.py, test_training.py)
+src/mini_gpt/sample.py      Load a checkpoint and generate text (CLI + Python API)
+tests/                      pytest suite (test_model.py, test_training.py, test_sample.py)
 tasks.py / Makefile         setup | test | train | lint | clean
 LICENSE                     MIT
 ```

@@ -13,6 +13,7 @@
 #   make train ARGS="-o training.max_iters=500"
 #   make train ARGS="--resume"                   # continue checkpoints/last.pt
 #   make train ARGS="--force"                    # start over, replacing checkpoints/
+#   make sample ARGS='--prompt "ROMEO:" --tokens 300'   # generate from checkpoints/best.pt
 
 SHELL := bash
 .DEFAULT_GOAL := help
@@ -32,7 +33,7 @@ else
   PY := $(VENV)/bin/python
 endif
 
-.PHONY: help setup test train lint clean
+.PHONY: help setup test train sample lint clean
 
 help: ## Show available targets
 	@grep -E '^[a-z]+:.*## ' $(firstword $(MAKEFILE_LIST)) | \
@@ -49,6 +50,9 @@ test: ## Run the pytest suite (ARGS passed to pytest)
 
 train: ## Train with CONFIG (ARGS passed to the trainer, e.g. -o key=value, --resume)
 	$(PY) -m mini_gpt.train --config $(CONFIG) $(ARGS)
+
+sample: ## Generate text from a checkpoint (ARGS, e.g. --prompt "ROMEO:" --tokens 300)
+	$(PY) -m mini_gpt.sample $(ARGS)
 
 lint: ## Run ruff
 	$(PY) -m ruff check src tests
