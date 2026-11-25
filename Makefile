@@ -14,6 +14,7 @@
 #   make train ARGS="--resume"                   # continue checkpoints/last.pt
 #   make train ARGS="--force"                    # start over, replacing checkpoints/
 #   make sample ARGS='--prompt "ROMEO:" --tokens 300'   # generate from checkpoints/best.pt
+#   make ui ARGS="--open"                        # browser playground on http://127.0.0.1:8000
 
 SHELL := bash
 .DEFAULT_GOAL := help
@@ -33,7 +34,7 @@ else
   PY := $(VENV)/bin/python
 endif
 
-.PHONY: help setup test train sample lint clean
+.PHONY: help setup test train sample ui lint clean
 
 help: ## Show available targets
 	@grep -E '^[a-z]+:.*## ' $(firstword $(MAKEFILE_LIST)) | \
@@ -53,6 +54,9 @@ train: ## Train with CONFIG (ARGS passed to the trainer, e.g. -o key=value, --re
 
 sample: ## Generate text from a checkpoint (ARGS, e.g. --prompt "ROMEO:" --tokens 300)
 	$(PY) -m mini_gpt.sample $(ARGS)
+
+ui: ## Browser playground for a checkpoint (ARGS, e.g. --open, --checkpoint PATH)
+	$(PY) -m mini_gpt.ui $(ARGS)
 
 lint: ## Run ruff
 	$(PY) -m ruff check src tests

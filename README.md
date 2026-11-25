@@ -46,7 +46,9 @@ The focus is **numerical engineering**:
     sequence.
   - A new run refuses to overwrite an existing one unless you pass `--resume` or
     `--force`.
-- **83 pytest tests.** 80 run on CPU and 3 more need CUDA. The suite takes about 30 s.
+- **Browser playground.** A local web UI streams text from any checkpoint, one
+  character at a time. It uses only the standard library.
+- **98 pytest tests.** 95 run on CPU and 3 more need CUDA. The suite takes about 30 s.
 
 ---
 
@@ -126,6 +128,9 @@ python tasks.py train
 # 4. Generate text with the trained model (see "Generating text" below)
 python tasks.py sample --prompt "ROMEO:" --tokens 300
 
+# 5. Or try it in your browser at http://127.0.0.1:8000
+python tasks.py ui --open
+
 # Override any config value; resume or restart a run
 python tasks.py train -o training.max_iters=500 -o optimizer.lr=6e-4
 python tasks.py train --resume        # continue from checkpoints/last.pt
@@ -138,7 +143,7 @@ in the `Makefile` for GNU Make users (Linux/macOS, or Git Bash on Windows after
 
 ```bash
 make setup    make test ARGS="-k causal -v"    make train ARGS="--resume"    make lint
-make sample ARGS='--prompt "ROMEO:" --tokens 300'
+make sample ARGS='--prompt "ROMEO:" --tokens 300'    make ui ARGS="--open"
 ```
 
 A run writes to `checkpoints/`:
@@ -185,6 +190,33 @@ from mini_gpt.sample import generate_text, load_model
 model, tokenizer, ckpt = load_model("checkpoints/best.pt", device="cpu")  # or "cuda"; eval mode
 print(generate_text(model, tokenizer, "ROMEO:", 300, temperature=0.8, top_k=40))
 ```
+
+### Try it in your browser ([`ui.py`](src/mini_gpt/ui.py))
+
+```bash
+python tasks.py ui --open                                     # serves checkpoints/best.pt
+python tasks.py ui --checkpoint checkpoints/last.pt --port 8080
+```
+
+This opens a local playground at `http://127.0.0.1:8000`:
+
+1. Write the opening of a scene, or pick an example such as `ROMEO:`.
+2. Set the length, temperature and top-k.
+3. Watch the model write one character at a time. **Stop** (or `Esc`) ends the
+   generation on the server immediately.
+
+Every run uses a new random seed, which the page shows. Tick **Keep this seed** to
+reproduce a result exactly. A fixed seed is off by default because two runs with the
+same seed draw the same random numbers. Different prompts would then quickly converge on
+the same text.
+
+- **No extra installs.** It uses only the standard library (`http.server`), and the page
+  works offline.
+- **Local by default.** It listens on `127.0.0.1`. `--host 0.0.0.0` opens it to your
+  network and prints a warning.
+- **One generation at a time.** A second request is rejected rather than queued.
+  Requests must be JSON (`application/json`), and the server only answers requests
+  addressed to localhost, so other websites can't drive it.
 
 ---
 
@@ -272,7 +304,7 @@ conservative micro-batch of 16 costs about 3% throughput against 64 and leaves a
 ## Test suite ([`tests/`](tests))
 
 ```bash
-python tasks.py test          # 83 tests: CPU-only machines skip the 3 CUDA tests
+python tasks.py test          # 98 tests: CPU-only machines skip the 3 CUDA tests
 ```
 
 | Area | What is checked |
@@ -285,6 +317,7 @@ python tasks.py test          # 83 tests: CPU-only machines skip the 3 CUDA test
 | Infrastructure | Config validation and overrides, tokenizer, batching, checkpoint and RNG round-trip, bitwise-reproducible seeding, hardware-aware precision on 10 simulated GPUs |
 | End to end | Training on a synthetic corpus (CPU and CUDA fp16), resume, overwrite protection, `--force` |
 | Sampling | Generating from `last.pt` reproduces the end-of-training sample exactly; seeded CLI output repeats; clear errors for a missing checkpoint, unknown prompt characters and bad options |
+| Web UI | Streamed text equals `generate_text` exactly; page and model info served; 10 kinds of bad request rejected with clear messages; non-JSON (415), oversized (413) and foreign-`Host` (403) requests refused; a busy model returns 409; a client disconnect frees the model |
 
 ---
 
@@ -296,7 +329,8 @@ src/mini_gpt/model.py       LayerNorm, CausalSelfAttention, FeedForward, Transfo
 src/mini_gpt/train.py       Config dataclasses, LR schedule, AMP training loop, CLI
 src/mini_gpt/utils.py       Seeding, device/precision selection, checkpoints, tokenizer, data
 src/mini_gpt/sample.py      Load a checkpoint and generate text (CLI + Python API)
-tests/                      pytest suite (test_model.py, test_training.py, test_sample.py)
+src/mini_gpt/ui.py, ui.html Browser playground (stdlib HTTP server + one offline page)
+tests/                      pytest suite (test_model, test_training, test_sample, test_ui)
 tasks.py / Makefile         setup | test | train | lint | clean
 LICENSE                     MIT
 ```

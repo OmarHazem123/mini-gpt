@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>mini-gpt playground</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23b8401f'/%3E%3Cpath d='M9 22V10h3l4 6 4-6h3v12' fill='none' stroke='white' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+
+    --bg:          oklch(0.985 0.002 35);
+    --surface:     oklch(0.962 0.004 35);
+    --raised:      oklch(1 0 0);
+    --hover:       oklch(0.93 0.006 35);
+    --line:        oklch(0.885 0.006 35);
+    --line-strong: oklch(0.64 0.01 35);
+    --ink:         oklch(0.22 0.01 35);
+    --ink-2:       oklch(0.45 0.012 35);
+    --accent:      oklch(0.53 0.17 36);
+    --accent-hover:oklch(0.47 0.16 36);
+    --on-accent:   oklch(0.99 0 0);
+    --danger:      oklch(0.52 0.18 27);
+    --ring:        oklch(0.53 0.17 36 / 0.9);
+
+    --radius: 6px;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:          oklch(0.18 0.005 35);
+      --surface:     oklch(0.212 0.006 35);
+      --raised:      oklch(0.245 0.007 35);
+      --hover:       oklch(0.29 0.008 35);
+      --line:        oklch(0.3 0.008 35);
+      --line-strong: oklch(0.5 0.01 35);
+      --ink:         oklch(0.93 0.005 35);
+      --ink-2:       oklch(0.74 0.01 35);
+      --accent:      oklch(0.72 0.15 40);
+      --accent-hover:oklch(0.78 0.13 40);
+      --on-accent:   oklch(0.2 0.02 35);
+      --danger:      oklch(0.74 0.15 27);
+      --ring:        oklch(0.72 0.15 40 / 0.9);
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { height: 100%; }
+  body {
+    margin: 0; min-height: 100%;
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+
+  /* ---------- shell ---------- */
+  .app { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 100dvh; }
+  @media (min-width: 861px) { .app { height: 100dvh; } }
+
+  .bar {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 0.25rem 2rem; padding: 0.875rem 1.5rem;
+    border-bottom: 1px solid var(--line); background: var(--surface);
+  }
+  .wordmark { margin: 0; font: 650 1.0625rem/1.2 var(--mono); letter-spacing: -0.01em; }
+  .wordmark span { font: 400 0.875rem var(--sans); color: var(--ink-2); margin-left: 0.5rem; letter-spacing: 0; }
+  .meta {
+    margin: 0; display: flex; flex-wrap: wrap; gap: 0.125rem 0;
+    font-size: 0.8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+  .meta > span + span::before { content: "·"; margin: 0 0.5rem; color: var(--line-strong); }
+  .meta strong { color: var(--ink); font-weight: 600; }
+  .meta[data-tone="error"] { color: var(--danger); }
+
+  .workspace { display: grid; grid-template-columns: minmax(19rem, 23rem) minmax(0, 1fr); min-height: 0; }
+
+  /* ---------- controls ---------- */
+  .controls {
+    display: flex; flex-direction: column; gap: 1.375rem;
+    padding: 1.25rem 1.5rem 0; overflow: auto;
+    background: var(--surface); border-right: 1px solid var(--line);
+  }
+  /* Keeps Generate/Stop reachable however short the window is. */
+  .actions {
+    position: sticky; bottom: 0; margin-top: auto;
+    padding: 0.875rem 0 1.25rem; background: var(--surface);
+    box-shadow: 0 -1px 0 var(--line);
+  }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 1.375rem; }
+  fieldset:disabled { opacity: 0.6; }
+  .field { display: grid; gap: 0.4rem; }
+  .field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  label { font-size: 0.8125rem; font-weight: 600; }
+  output, .count { font: 500 0.8125rem/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .hint { margin: 0; font-size: 0.8125rem; color: var(--ink-2); text-wrap: pretty; }
+  .field-error { margin: 0; font-size: 0.8125rem; color: var(--danger); }
+
+  textarea, input[type="number"] {
+    width: 100%; background: var(--raised);
+    border: 1px solid var(--line-strong); border-radius: var(--radius);
+    padding: 0.5rem 0.625rem;
+    transition: border-color 150ms var(--ease-out);
+  }
+  textarea { font: 14px/1.5 var(--mono); resize: vertical; min-height: 7.5rem; }
+  textarea::placeholder { color: var(--ink-2); opacity: 1; }
+  textarea[aria-invalid="true"], input[aria-invalid="true"] { border-color: var(--danger); }
+  input[type="range"] { width: 100%; margin: 0.25rem 0 0; accent-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  input[type="range"]:focus-visible { outline-offset: 4px; border-radius: 2px; }
+
+  .examples { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
+  .examples > span { font-size: 0.8125rem; color: var(--ink-2); margin-right: 0.125rem; }
+  #seed { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  label.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
+  label.check input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--accent); }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    height: 2.25rem; padding: 0 0.875rem; white-space: nowrap;
+    font-size: 0.875rem; font-weight: 600;
+    background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out);
+  }
+  .btn:hover { background: var(--hover); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-sm { height: 1.875rem; padding: 0 0.625rem; font: 500 0.8125rem var(--mono); }
+  .btn-primary {
+    width: 100%; height: 2.75rem;
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-primary.is-running { background: var(--raised); border-color: var(--line-strong); color: var(--ink); }
+  .btn-primary.is-running:hover { background: var(--hover); }
+  kbd {
+    font: 500 0.75rem/1 var(--mono); padding: 0.2rem 0.375rem; border-radius: 4px;
+    background: color-mix(in oklch, currentColor 16%, transparent);
+  }
+
+  /* ---------- output ---------- */
+  .stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .stage-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    min-height: 3.25rem; padding: 0.5rem 1.5rem; border-bottom: 1px solid var(--line);
+  }
+  .status { margin: 0; font-size: 0.875rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .status[data-tone="error"] { color: var(--danger); }
+  .status[data-tone="busy"] { color: var(--ink); }
+  .scroll { flex: 1; overflow: auto; padding: 1.5rem; min-height: 20rem; }
+  .text {
+    margin: 0; max-width: 80ch;
+    font: 14.5px/1.7 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .text .p { color: var(--ink-2); }
+  .caret {
+    display: none; width: 0.6em; height: 1.15em; margin-left: 1px;
+    vertical-align: text-bottom; background: var(--accent);
+  }
+  .running .caret { display: inline-block; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .empty { max-width: 46ch; color: var(--ink-2); }
+  .empty h2 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; color: var(--ink); text-wrap: balance; }
+  .empty p { margin: 0 0 0.75rem; text-wrap: pretty; }
+  .empty code { font: 0.875em var(--mono); color: var(--ink); }
+
+  @media (max-width: 860px) {
+    .workspace { grid-template-columns: 1fr; }
+    .controls { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+    .bar, .stage-bar { padding-left: 1rem; padding-right: 1rem; }
+    .controls, .scroll { padding-left: 1rem; padding-right: 1rem; }
+    .scroll { min-height: 60vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0ms !important; }
+    .running .caret { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <h1 class="wordmark">mini-gpt<span>playground</span></h1>
+    <p class="meta" id="meta"><span>Loading model…</span></p>
+  </header>
+
+  <main class="workspace">
+    <form class="controls" id="form" autocomplete="off">
+      <fieldset id="params">
+        <div class="field">
+          <div class="field-head">
+            <label for="prompt">Prompt</label>
+            <span class="count" id="prompt-count">0</span>
+          </div>
+          <textarea id="prompt" rows="5" spellcheck="false" placeholder="ROMEO:&#10;But soft, what light"
+                    aria-describedby="prompt-hint prompt-error"></textarea>
+          <div class="examples" role="group" aria-label="Example prompts">
+            <span>Try</span>
+            <button type="button" class="btn btn-sm" data-prompt="ROMEO:&#10;">ROMEO:</button>
+            <button type="button" class="btn btn-sm" data-prompt="JULIET:&#10;">JULIET:</button>
+            <button type="button" class="btn btn-sm" data-prompt="First Citizen:&#10;">First Citizen:</button>
+            <button type="button" class="btn btn-sm" data-prompt="KING RICHARD III:&#10;">KING RICHARD III:</button>
+          </div>
+          <p class="hint" id="prompt-hint">Only characters from the training text work. Leave it empty to let the model begin on its own.</p>
+          <p class="field-error" id="prompt-error" role="alert" hidden></p>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="tokens">Length</label>
+            <output id="tokens-out" for="tokens">500 chars</output>
+          </div>
+          <input type="range" id="tokens" min="50" max="2000" step="50" value="500">
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="temperature">Temperature</label>
+            <output id="temperature-out" for="temperature">0.80</output>
+          </div>
+          <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.8" aria-describedby="temperature-hint">
+          <p class="hint" id="temperature-hint">0 always picks the likeliest next character. Higher values take more risks.</p>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="topk">Top-k</label>
+            <output id="topk-out" for="topk">off</output>
+          </div>
+          <input type="range" id="topk" min="0" max="65" step="1" value="0" aria-describedby="topk-hint">
+          <p class="hint" id="topk-hint">Sample only from the k likeliest characters. Small values keep the text tidier.</p>
+        </div>
+
+        <div class="field">
+          <label for="seed">Seed</label>
+          <input type="number" id="seed" min="0" max="4294967295" step="1" value="1337" inputmode="numeric" aria-describedby="seed-hint">
+          <label class="check"><input type="checkbox" id="keep-seed"> Keep this seed</label>
+          <p class="hint" id="seed-hint">Each run picks a new random seed. Keep it to get exactly the same text again with the same settings.</p>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" id="go" disabled>
+          <span id="go-label">Generate</span><kbd id="go-kbd">Ctrl+Enter</kbd>
+        </button>
+      </div>
+    </form>
+
+    <section class="stage" aria-label="Generated text">
+      <div class="stage-bar">
+        <p class="status" id="status" role="status" aria-live="polite">Loading model…</p>
+        <button type="button" class="btn btn-sm" id="copy" disabled>Copy</button>
+      </div>
+      <div class="scroll" id="scroll">
+        <div class="empty" id="empty">
+          <h2>Write the opening of a scene, then press Generate.</h2>
+          <p>A speaker's name followed by a colon, like <code>ROMEO:</code>, gives the model the most to go on. It writes one character at a time and only knows the characters it saw in TinyShakespeare.</p>
+          <p>Your prompt shows in grey and the model's text in full colour. <kbd>Ctrl+Enter</kbd> generates and <kbd>Esc</kbd> stops.</p>
+        </div>
+        <pre class="text" id="text" hidden><span class="p" id="text-prompt"></span><span id="text-gen"></span><span class="caret" aria-hidden="true"></span></pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const form = $("form"), params = $("params"), prompt = $("prompt"), promptCount = $("prompt-count");
+  const promptError = $("prompt-error"), tokens = $("tokens"), temperature = $("temperature");
+  const topk = $("topk"), seed = $("seed"), keepSeed = $("keep-seed");
+  const go = $("go"), goLabel = $("go-label"), goKbd = $("go-kbd");
+  const status = $("status"), meta = $("meta"), copyBtn = $("copy"), scroll = $("scroll");
+  const empty = $("empty"), text = $("text"), textPrompt = $("text-prompt");
+  const genNode = document.createTextNode("");
+  $("text-gen").appendChild(genNode);
+
+  let info = null, vocab = null, controller = null, generated = "";
+  const STORE_KEY = "mini-gpt:settings";
+
+  // ---------- settings persistence (per browser; never required) ----------
+  function loadSettings() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch { return null; }
+  }
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        prompt: prompt.value, tokens: tokens.value, temperature: temperature.value,
+        topk: topk.value, seed: seed.value, keepSeed: keepSeed.checked,
+      }));
+    } catch { /* private mode or storage blocked: settings just aren't remembered */ }
+  }
+  const saved = loadSettings();
+  if (saved) {
+    prompt.value = saved.prompt ?? "";
+    for (const [el, key] of [[tokens, "tokens"], [temperature, "temperature"], [topk, "topk"], [seed, "seed"]]) {
+      if (saved[key] != null) el.value = saved[key];
+    }
+    keepSeed.checked = Boolean(saved.keepSeed);
+  } else {
+    prompt.value = "ROMEO:\n";
+  }
+
+  // ---------- display helpers ----------
+  const fmtInt = (n) => Number(n).toLocaleString("en-US");
+  function setStatus(message, tone = "") {
+    status.textContent = message;
+    status.dataset.tone = tone;
+  }
+  function syncOutputs() {
+    $("tokens-out").textContent = `${fmtInt(tokens.value)} chars`;
+    $("temperature-out").textContent = Number(temperature.value).toFixed(2);
+    $("topk-out").textContent = Number(topk.value) === 0 ? "off" : topk.value;
+  }
+  function describeChar(ch) {
+    if (ch === "\t") return "tab";
+    if (ch === "\r") return "carriage return";
+    if (/\s/.test(ch)) return `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`;
+    return `“${ch}”`;
+  }
+
+  // ---------- validation ----------
+  function badPromptChars() {
+    if (!vocab) return [];
+    const bad = [];
+    for (const ch of prompt.value) if (!vocab.has(ch) && !bad.includes(ch)) bad.push(ch);
+    return bad;
+  }
+  function seedValue() {
+    const v = seed.value.trim();
+    if (!/^\d+$/.test(v)) return null;
+    const n = Number(v);
+    return n <= info.limits.seed ? n : null;
+  }
+  function validate() {
+    promptCount.textContent = `${fmtInt([...prompt.value].length)}${info ? " / " + fmtInt(info.limits.prompt_chars) : ""}`;
+    const bad = badPromptChars();
+    if (bad.length) {
+      const shown = bad.slice(0, 6).map(describeChar).join(", ");
+      promptError.textContent = `The model has never seen ${bad.length === 1 ? "this character" : "these characters"}: ${shown}${bad.length > 6 ? ", …" : ""}. Remove ${bad.length === 1 ? "it" : "them"} to generate.`;
+      promptError.hidden = false;
+      prompt.setAttribute("aria-invalid", "true");
+    } else {
+      promptError.hidden = true;
+      prompt.removeAttribute("aria-invalid");
+    }
+    const seedOk = !info || seedValue() !== null;
+    seed.toggleAttribute("aria-invalid", !seedOk);
+    if (!controller) go.disabled = !info || bad.length > 0 || !seedOk;
+  }
+
+  // ---------- model info ----------
+  async function loadInfo() {
+    try {
+      const res = await fetch("/api/info", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      info = await res.json();
+    } catch {
+      meta.dataset.tone = "error";
+      meta.textContent = "Can't reach the server. Is python tasks.py ui still running?";
+      setStatus("Not connected", "error");
+      return;
+    }
+    vocab = new Set(info.vocab);
+    tokens.max = String(info.limits.tokens);
+    topk.max = String(info.vocab.length);
+    seed.max = String(info.limits.seed);
+    prompt.maxLength = info.limits.prompt_chars;
+
+    const name = document.createElement("strong");
+    name.textContent = info.checkpoint;
+    const parts = [
+      name,
+      `step ${fmtInt(info.iter)}`,
+      info.best_val_loss == null ? "not evaluated" : `val loss ${info.best_val_loss.toFixed(3)}`,
+      `${(info.params / 1e6).toFixed(2)}M params`,
+      `${info.n_layer} layers × ${info.n_embd}`,
+      info.device,
+    ];
+    meta.replaceChildren(...parts.map((p) => {
+      const span = document.createElement("span");
+      span.append(p);
+      return span;
+    }));
+    meta.title = `Context ${info.block_size} characters · ${info.n_head} heads · vocabulary ${info.vocab.length} characters`;
+    $("prompt-hint").textContent = `The model knows ${info.vocab.length} characters: letters and basic punctuation. Leave the prompt empty to let it begin on its own.`;
+    syncOutputs();
+    validate();
+    setStatus("Ready");
+  }
+
+  // ---------- generation ----------
+  function setRunning(running) {
+    go.classList.toggle("is-running", running);
+    goLabel.textContent = running ? "Stop" : "Generate";
+    goKbd.textContent = running ? "Esc" : "Ctrl+Enter";
+    params.disabled = running;
+    text.classList.toggle("running", running);
+    copyBtn.disabled = running || !generated;
+    if (running) go.disabled = false; else validate();
+  }
+
+  function append(chunk) {
+    if (!chunk) return;
+    const pinned = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 48;
+    genNode.appendData(chunk);
+    generated += chunk;
+    if (pinned) scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  async function requestGeneration(body, signal) {
+    // Right after Stop the server may still be finishing the last write; retry briefly.
+    for (let attempt = 0; ; attempt++) {
+      const res = await fetch("/api/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body), signal,
+      });
+      if (res.status !== 409 || attempt >= 10) return res;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }
+
+  async function generate() {
+    if (controller) return stop();
+    if (go.disabled) return;
+    // A fresh seed per run, so different prompts really diverge. Runs that share a seed
+    // draw the same random numbers and tend to converge on the same text.
+    if (!keepSeed.checked) seed.value = String(crypto.getRandomValues(new Uint32Array(1))[0]);
+    const body = {
+      prompt: prompt.value,
+      tokens: Number(tokens.value),
+      temperature: Number(temperature.value),
+      top_k: Number(topk.value) || null,
+      seed: seedValue(),
+    };
+    saveSettings();
+    controller = new AbortController();
+    generated = "";
+    genNode.data = "";
+    textPrompt.textContent = body.prompt;
+    empty.hidden = true;
+    text.hidden = false;
+    scroll.scrollTop = 0;
+    setRunning(true);
+    setStatus("Generating…", "busy");
+
+    const t0 = performance.now();
+    let count = 0;
+    try {
+      const res = await requestGeneration(body, controller.signal);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        count += [...chunk].length;
+        append(chunk);
+      }
+      append(decoder.decode());
+      const secs = (performance.now() - t0) / 1000;
+      setStatus(`${fmtInt(count)} characters in ${secs.toFixed(1)} s · ${fmtInt(Math.round(count / secs))} chars/s · seed ${body.seed}`);
+    } catch (e) {
+      if (e.name === "AbortError") setStatus(`Stopped after ${fmtInt(count)} characters`);
+      else setStatus(e.message || "Generation failed", "error");
+    } finally {
+      controller = null;
+      setRunning(false);
+    }
+  }
+
+  function stop() {
+    if (controller) controller.abort();
+  }
+
+  // ---------- events ----------
+  form.addEventListener("submit", (e) => { e.preventDefault(); generate(); });
+  prompt.addEventListener("input", () => { validate(); });
+  seed.addEventListener("input", () => { keepSeed.checked = true; validate(); });
+  for (const el of [tokens, temperature, topk]) el.addEventListener("input", syncOutputs);
+  form.addEventListener("change", saveSettings);
+  document.querySelectorAll("[data-prompt]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      prompt.value = btn.dataset.prompt;
+      validate();
+      saveSettings();
+      prompt.focus();
+      prompt.setSelectionRange(prompt.value.length, prompt.value.length);
+    });
+  });
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(textPrompt.textContent + generated);
+      copyBtn.textContent = "Copied";
+    } catch {
+      copyBtn.textContent = "Copy failed";
+    }
+    setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); generate(); }
+    else if (e.key === "Escape" && controller) { e.preventDefault(); stop(); }
+  });
+
+  syncOutputs();
+  validate();
+  loadInfo();
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ Usage (any shell, including PowerShell and cmd):
     python tasks.py train [trainer args...]      e.g. -o training.max_iters=500,
                                                  --resume, or --force
     python tasks.py sample [sampler args...]     e.g. --prompt "ROMEO:" --tokens 300
+    python tasks.py ui [ui args...]              browser playground, e.g. --open
     python tasks.py lint
     python tasks.py clean
 """
@@ -69,6 +70,14 @@ def sample(args: list[str]) -> None:
     run(PY, "-m", "mini_gpt.sample", *args)
 
 
+def ui(args: list[str]) -> None:
+    require_venv()
+    try:
+        run(PY, "-m", "mini_gpt.ui", *args)
+    except KeyboardInterrupt:  # Ctrl+C stops the server; no traceback from this wrapper
+        pass
+
+
 def lint(args: list[str]) -> None:
     require_venv()
     run(PY, "-m", "ruff", "check", "src", "tests", *args)
@@ -82,8 +91,8 @@ def clean(args: list[str]) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
-TASKS = {"setup": setup, "test": test, "train": train, "sample": sample, "lint": lint,
-         "clean": clean}
+TASKS = {"setup": setup, "test": test, "train": train, "sample": sample, "ui": ui,
+         "lint": lint, "clean": clean}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in TASKS:

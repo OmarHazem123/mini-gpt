@@ -26,9 +26,13 @@ dev = [
 [project.scripts]
 mini-gpt-train = "mini_gpt.train:main"
 mini-gpt-sample = "mini_gpt.sample:main"
+mini-gpt-ui = "mini_gpt.ui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+mini_gpt = ["ui.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
