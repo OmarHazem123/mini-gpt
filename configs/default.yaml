@@ -1,0 +1,62 @@
+# Mini-GPT default configuration: character-level TinyShakespeare.
+#
+# Targets a 4 GB GPU (e.g. GTX 1650 Ti). Attention is computed explicitly, so a
+# (B, n_head, T, T) score matrix is materialised per layer. Keep the micro-batch
+# small and reach the effective batch with grad_accum_steps.
+#
+# Measured on a GTX 1650 Ti (4 GB), peak memory incl. evaluation:
+#   micro-batch  8: ~0.65 GB | 16: ~1.0 GB (fp16) / ~1.3 GB (fp32) | 32: ~1.7 GB
+#   micro-batch 64: ~3.2 GB (only ~85 MB left free; not recommended)
+# Throughput is nearly independent of micro-batch size, so 16 costs almost nothing.
+#
+# YAML gotcha: PyYAML parses `1e-3` as a STRING. Always write floats as `1.0e-3`.
+# (Command-line overrides such as `-o optimizer.lr=3e-4` are parsed correctly.)
+
+seed: 1337
+deterministic: true     # cudnn.deterministic, CUBLAS_WORKSPACE_CONFIG, deterministic algorithms
+
+model:
+  vocab_size: 65        # Char-level TinyShakespeare. The tokenizer is the source of truth;
+                        # train.py overrides this with tokenizer.vocab_size and warns on mismatch.
+  block_size: 256       # Max context length T.
+  n_layer: 6
+  n_head: 6
+  n_embd: 384           # Must be divisible by n_head (head_size = 64).
+  dropout: 0.2
+  bias: true            # Bias in Linear layers and LayerNorm.
+  tie_weights: true     # Share token-embedding and lm_head weights (GPT-2 style).
+
+data:
+  dataset_url: "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+  data_dir: "data"
+  train_split: 0.9
+
+training:
+  batch_size: 16        # Micro-batch per forward/backward pass.
+  grad_accum_steps: 4   # Effective batch = batch_size * grad_accum_steps = 64 sequences.
+  max_iters: 5000       # Optimizer steps (not micro-steps).
+  grad_clip: 1.0        # Max global L2 norm; 0.0 disables clipping.
+  eval_interval: 250
+  eval_iters: 100       # Batches averaged per split when estimating loss.
+  log_interval: 10
+  device: "auto"        # auto | cuda | cpu
+  amp_dtype: "float32"  # float32 | auto | float16 | bfloat16
+                        # float32: fastest on GPUs without tensor cores (GTX 16xx, Pascal);
+                        #   measured 3.7x faster than float16 on a GTX 1650 Ti.
+                        # auto -> bfloat16 on Ampere+ (native bf16), float16 + GradScaler on
+                        #   Volta / Turing RTX (tensor cores), float32 otherwise and on CPU.
+  out_dir: "checkpoints"
+  max_nonfinite_steps: 25  # Abort after this many consecutive NaN/Inf gradient steps.
+  sample_tokens: 500    # Characters to sample after training (0 disables).
+
+optimizer:
+  lr: 1.0e-3            # Peak learning rate (reached at the end of warmup).
+  weight_decay: 0.1     # Applied to >=2D weights only (no biases / LayerNorm params).
+  beta1: 0.9
+  beta2: 0.99
+  eps: 1.0e-8
+
+scheduler:
+  warmup_iters: 100     # Linear warmup 0 -> lr.
+  lr_decay_iters: null  # Cosine decay lr -> min_lr ends here; null = max_iters.
+  min_lr: 1.0e-4        # Typically lr / 10.

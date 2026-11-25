@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mini-gpt"
+version = "0.1.0"
+description = "From-scratch decoder-only Transformer (mini-GPT) in core PyTorch."
+requires-python = ">=3.10"
+dependencies = [
+    # torch.amp.GradScaler("cuda") / torch.amp.autocast(device_type=...) API.
+    # NOTE (Windows): PyPI torch wheels are CPU-only. The CUDA build is installed
+    # by `make setup` from the PyTorch wheel index, not from this file.
+    "torch>=2.3",
+    "pyyaml>=6.0",
+    "numpy>=1.24",  # torch emits "Failed to initialize NumPy" at import without it
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+mini-gpt-train = "mini_gpt.train:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM"]
+ignore = [
+    "N812",   # allow `import torch.nn.functional as F`
+    "N806",   # allow shape names B, T, C in function bodies (ML convention)
+    "SIM300", # false positives: treats uppercase shape vars like `T` as constants
+]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
