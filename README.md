@@ -239,6 +239,70 @@ the same text.
 
 ---
 
+## Results: the full 5000-step run
+
+This is `python tasks.py train` with the defaults (float32, micro-batch 16 × 4 = 64
+sequences, 5000 steps) on the GTX 1650 Ti. The numbers come from
+`checkpoints/metrics.jsonl`.
+
+| Step | Train loss | Validation loss |
+|---|---|---|
+| 0 | 4.304 | 4.301 |
+| 500 | 1.524 | 1.712 |
+| 1000 | 1.265 | 1.527 |
+| 1500 | 1.146 | 1.482 |
+| **1750** | **1.088** | **1.471** (best, saved as `best.pt`) |
+| 2000 | 1.046 | 1.484 |
+| 3000 | 0.843 | 1.553 |
+| 4000 | 0.677 | 1.651 |
+| 5000 | 0.586 | 1.729 |
+
+- **Best validation loss: 1.471, at step 1750.** That checkpoint is `checkpoints/best.pt`,
+  which `sample` and the playground load by default.
+- **It overfits after about step 1750.** TinyShakespeare has only about 1M training
+  characters. The 10.8M-parameter model keeps lowering its training loss, to 0.59 at
+  step 5000, while validation loss rises to 1.73. Stopping near step 2000 would give the
+  same best model in about 40% of the time.
+- **Numerically clean.** No step was skipped for a non-finite gradient. Gradient
+  clipping engaged only in the first 20 steps of warmup (3 of the 500 logged steps).
+- **Speed matched the benchmark.** The median optimizer step took 875 ms (18.7k
+  tokens/s), so the 5000 training steps took about 73 minutes, as projected from the
+  200-step run. The whole run took 79 minutes, including 21 evaluations of about 17 s
+  each. Peak memory was 1275 MiB allocated and 1320 MiB reserved.
+
+**Sample from the final (step 5000) weights**, shown verbatim. The model starts from a
+newline and writes 500 characters at temperature 0.8 with seed 1337, so the text stops
+mid-sentence. `python tasks.py sample --checkpoint checkpoints/last.pt` reproduces it
+exactly. None of its dialogue lines appear in the training text. The longest stretch
+copied verbatim is 36 characters, mostly a speaker name.
+
+```text
+KING RICHARD III:
+The day stirs: but I am done, and at least.
+
+QUEEN ELIZABETH:
+By this content and sweet make haste.
+
+KING RICHARD III:
+Madam, I have discharged for the city's tyranny.
+
+QUEEN ELIZABETH:
+Ay, and well-answer'd.
+
+KING RICHARD III:
+Madam, your mother slew my turn to the crown,
+And your own passage to instrument.
+
+QUEEN ELIZABETH:
+Come, come, good madam, to thy sovereign's will,
+And let her come to her harmly by our side.
+
+KING RICHARD III:
+Fly to her marshal, by whose chance I met
+```
+
+---
+
 ## Benchmarks (measured on my hardware)
 
 **Setup:**
@@ -337,8 +401,9 @@ LICENSE                     MIT
 
 ## Limitations and next steps
 
-- **No full-length result yet.** The numbers above come from 200-step runs. A full
-  5000-step run (about 73 min in float32 on this GPU) is the next step.
+- **Overfitting.** The default 5000 steps follow nanoGPT's config, but validation loss
+  is best at step 1750 (see Results). Early stopping, or more dropout or weight decay,
+  would suit this small dataset better.
 - **Explicit attention.** It materialises `(B, nh, T, T)`, by design for this project.
   A fused or flash kernel would cut memory roughly linearly in `T`.
 - **No `torch.compile`.** Triton is not available on native Windows.
