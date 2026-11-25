@@ -46,6 +46,9 @@ The focus is **numerical engineering**:
     sequence.
   - A new run refuses to overwrite an existing one unless you pass `--resume` or
     `--force`.
+- **Full run lands close to the reference.** 5000 steps in 79 minutes on a 4 GB
+  GTX 1650 Ti reach a best validation loss of 1.4711. nanoGPT reports 1.4697 for the
+  same hyperparameters. See [Results](#results-the-full-5000-step-run).
 - **Browser playground.** A local web UI streams text from any checkpoint, one
   character at a time. It uses only the standard library.
 - **98 pytest tests.** 95 run on CPU and 3 more need CUDA. The suite takes about 30 s.
@@ -258,13 +261,19 @@ sequences, 5000 steps) on the GTX 1650 Ti. The numbers come from
 | 5000 | 0.586 | 1.729 |
 
 - **Best validation loss: 1.471, at step 1750.** That checkpoint is `checkpoints/best.pt`,
-  which `sample` and the playground load by default.
+  which `sample` and the playground load by default. nanoGPT reports 1.4697 for the
+  same hyperparameters. Its evaluation averages more data (200 batches of 64 sequences,
+  against 100 batches of 16 here), so treat the 0.0014 gap as approximate.
 - **It overfits after about step 1750.** TinyShakespeare has only about 1M training
   characters. The 10.8M-parameter model keeps lowering its training loss, to 0.59 at
-  step 5000, while validation loss rises to 1.73. Stopping near step 2000 would give the
-  same best model in about 40% of the time.
-- **Numerically clean.** No step was skipped for a non-finite gradient. Gradient
-  clipping engaged only in the first 20 steps of warmup (3 of the 500 logged steps).
+  step 5000, while validation loss rises to 1.73. Every step after 1750 lowered only the
+  training loss, and `best.pt` keeps the step-1750 weights. nanoGPT's config expects
+  this too: *"we expect to overfit on this small dataset, so only save when val
+  improves"*. A shorter run is not a shortcut to the same model, though. Lowering
+  `training.max_iters` also shortens the learning-rate decay
+  (`scheduler.lr_decay_iters` defaults to `max_iters`), so it is a different run.
+- **Numerically clean.** No step was skipped for a non-finite gradient. Every 10th step
+  is logged, and of those 500 only steps 0, 10 and 20, early in warmup, were clipped.
 - **Speed matched the benchmark.** The median optimizer step took 875 ms (18.7k
   tokens/s), so the 5000 training steps took about 73 minutes, as projected from the
   200-step run. The whole run took 79 minutes, including 21 evaluations of about 17 s
