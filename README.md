@@ -208,6 +208,14 @@ This opens a local playground at `http://127.0.0.1:8000`:
 3. Watch the model write one character at a time. **Stop** (or `Esc`) ends the
    generation on the server immediately.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/playground-dark.png">
+  <img src="docs/images/playground-light.png" width="1100" alt="The mini-gpt playground in a browser. The left column has the prompt ROMEO:, example prompts, sliders for length (500), temperature (0.80) and top-k (off), and seed 1337. The right column shows the generated scene, with lines for a Servant and two Servingmen, and the status line 500 characters in 31.6 s, seed 1337.">
+</picture>
+
+*The trained model (`best.pt`, step 1750) continuing `ROMEO:` with the default settings
+and seed 1337, running on the CPU.*
+
 Every run uses a new random seed, which the page shows. Tick **Keep this seed** to
 reproduce a result exactly. A fixed seed is off by default because two runs with the
 same seed draw the same random numbers. Different prompts would then quickly converge on
@@ -246,7 +254,9 @@ the same text.
 
 This is `python tasks.py train` with the defaults (float32, micro-batch 16 × 4 = 64
 sequences, 5000 steps) on the GTX 1650 Ti. The numbers come from
-`checkpoints/metrics.jsonl`.
+`checkpoints/metrics.jsonl`, and `python scripts/make_figures.py` redraws the chart from it.
+
+![Line chart of train and validation loss over 5000 optimizer steps. Both fall from about 4.3 at step 0. Validation loss is lowest, 1.471, at step 1,750, then rises to 1.729 at step 5,000, while train loss keeps falling to 0.585.](docs/images/loss_curve.svg)
 
 | Step | Train loss | Validation loss |
 |---|---|---|
@@ -255,10 +265,10 @@ sequences, 5000 steps) on the GTX 1650 Ti. The numbers come from
 | 1000 | 1.265 | 1.527 |
 | 1500 | 1.146 | 1.482 |
 | **1750** | **1.088** | **1.471** (best, saved as `best.pt`) |
-| 2000 | 1.046 | 1.484 |
+| 2000 | 1.046 | 1.483 |
 | 3000 | 0.843 | 1.553 |
 | 4000 | 0.677 | 1.651 |
-| 5000 | 0.586 | 1.729 |
+| 5000 | 0.585 | 1.729 |
 
 - **Best validation loss: 1.471, at step 1750.** That checkpoint is `checkpoints/best.pt`,
   which `sample` and the playground load by default. nanoGPT reports 1.4697 for the
@@ -323,6 +333,8 @@ Fly to her marshal, by whose chance I met
   included.
 
 ### 1. Precision trade-off: float32 wins on a GPU without tensor cores
+
+![Two bar charts comparing float32 and float16 on the GTX 1650 Ti. Training throughput: float32 18.8 thousand tokens per second, float16 5.1, so float32 is 3.7 times faster. Matrix multiply speed in TFLOP/s, float32 against float16: QKV projection 1.51 against 0.41, MLP up-projection 1.82 against 0.41, square 4096 cubed 1.81 against 0.41.](docs/images/precision.svg)
 
 Micro-batch 16 × 4 accumulation steps = 16,384 tokens per optimizer step, 200 steps:
 
@@ -405,6 +417,7 @@ src/mini_gpt/sample.py      Load a checkpoint and generate text (CLI + Python AP
 src/mini_gpt/ui.py, ui.html Browser playground (stdlib HTTP server + one offline page)
 tests/                      pytest suite (test_model, test_training, test_sample, test_ui)
 tasks.py / Makefile         setup | test | train | lint | clean
+scripts/make_figures.py     Draws the README charts (docs/images/*.svg) from metrics.jsonl
 LICENSE                     MIT
 ```
 

@@ -59,7 +59,7 @@ ui: ## Browser playground for a checkpoint (ARGS, e.g. --open, --checkpoint PATH
 	$(PY) -m mini_gpt.ui $(ARGS)
 
 lint: ## Run ruff
-	$(PY) -m ruff check src tests
+	$(PY) -m ruff check src tests scripts
 
 clean: ## Remove caches and build artifacts (keeps .venv, data/ and checkpoints/)
 	rm -rf .pytest_cache .ruff_cache .mypy_cache build dist src/*.egg-info

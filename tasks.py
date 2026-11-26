@@ -80,7 +80,7 @@ def ui(args: list[str]) -> None:
 
 def lint(args: list[str]) -> None:
     require_venv()
-    run(PY, "-m", "ruff", "check", "src", "tests", *args)
+    run(PY, "-m", "ruff", "check", "src", "tests", "scripts", *args)
 
 
 def clean(args: list[str]) -> None:

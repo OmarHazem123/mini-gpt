@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430" role="img" aria-labelledby="title desc">
+<title id="title">Training and validation loss</title>
+<desc id="desc">Line chart. Train and validation loss fall from about 4.3 at step 0. Validation loss is lowest, 1.471, at step 1750, then rises to 1.729 at step 5000 while train loss falls to 0.585.</desc>
+<style>text{font-family:system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;font-variant-numeric:tabular-nums}.t{font-size:16px;font-weight:600}.st{font-size:13px}.lb{font-size:12px}.pt{font-size:13px;font-weight:600}.bg{fill:#ffffff;stroke:rgba(11,11,11,0.10)}.ink{fill:#191919}.ink2{fill:#666666}.grid{stroke:#e7e7e7}.axis{stroke:#c2c2c2}.s1{stroke:#257de0}.s2{stroke:#f47230}.f1{fill:#257de0}.f2{fill:#f47230}.ring{stroke:#ffffff}@media (prefers-color-scheme: dark){.bg{fill:#191919;stroke:rgba(255,255,255,0.10)}.ink{fill:#efefef}.ink2{fill:#9c9c9c}.grid{stroke:#303030}.axis{stroke:#474747}.s1{stroke:#338ced}.s2{stroke:#e76624}.f1{fill:#338ced}.f2{fill:#e76624}.ring{stroke:#191919}}</style>
+<rect class="bg" x="0.5" y="0.5" width="759" height="429" rx="8"/>
+<text x="24.0" y="34.0" class="t ink" text-anchor="start">Training and validation loss over the full 5000-step run</text>
+<text x="24.0" y="56.0" class="st ink2" text-anchor="start">Mean cross-entropy per character, measured every 250 steps on 100 batches per split. Default config, float32, GTX 1650 Ti.</text>
+<line x1="24.0" y1="78.0" x2="40.0" y2="78.0" class="s1" stroke-width="2" stroke-linecap="round"/>
+<text x="46.0" y="82.0" class="lb ink2" text-anchor="start">Train</text>
+<line x1="102.0" y1="78.0" x2="118.0" y2="78.0" class="s2" stroke-width="2" stroke-linecap="round"/>
+<text x="124.0" y="82.0" class="lb ink2" text-anchor="start">Validation</text>
+<line x1="56.0" y1="378.0" x2="630.0" y2="378.0" class="axis" stroke-width="1"/>
+<text x="48.0" y="382.0" class="lb ink2" text-anchor="end">0</text>
+<line x1="56.0" y1="316.2" x2="630.0" y2="316.2" class="grid" stroke-width="1"/>
+<text x="48.0" y="320.2" class="lb ink2" text-anchor="end">1</text>
+<line x1="56.0" y1="254.4" x2="630.0" y2="254.4" class="grid" stroke-width="1"/>
+<text x="48.0" y="258.4" class="lb ink2" text-anchor="end">2</text>
+<line x1="56.0" y1="192.7" x2="630.0" y2="192.7" class="grid" stroke-width="1"/>
+<text x="48.0" y="196.7" class="lb ink2" text-anchor="end">3</text>
+<line x1="56.0" y1="130.9" x2="630.0" y2="130.9" class="grid" stroke-width="1"/>
+<text x="48.0" y="134.9" class="lb ink2" text-anchor="end">4</text>
+<text x="56.0" y="398.0" class="lb ink2" text-anchor="middle">0</text>
+<text x="170.8" y="398.0" class="lb ink2" text-anchor="middle">1,000</text>
+<text x="285.6" y="398.0" class="lb ink2" text-anchor="middle">2,000</text>
+<text x="400.4" y="398.0" class="lb ink2" text-anchor="middle">3,000</text>
+<text x="515.2" y="398.0" class="lb ink2" text-anchor="middle">4,000</text>
+<text x="630.0" y="398.0" class="lb ink2" text-anchor="middle">5,000</text>
+<text x="343.0" y="420.0" class="lb ink2" text-anchor="middle">Optimizer step</text>
+<path d="M56.0,112.1 L84.7,257.3 L113.4,283.8 L142.1,293.9 L170.8,299.8 L199.5,304.0 L228.2,307.2 L256.9,310.8 L285.6,313.4 L314.3,316.7 L343.0,319.7 L371.7,323.0 L400.4,325.9 L429.1,328.9 L457.8,331.6 L486.5,334.1 L515.2,336.2 L543.9,338.1 L572.6,339.6 L601.3,340.9 L630.0,341.8" fill="none" class="s1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M56.0,112.3 L84.7,250.6 L113.4,272.3 L142.1,280.9 L170.8,283.7 L199.5,285.8 L228.2,286.5 L256.9,287.1 L285.6,286.4 L314.3,285.8 L343.0,284.9 L371.7,283.6 L400.4,282.1 L429.1,280.6 L457.8,279.3 L486.5,277.0 L515.2,276.0 L543.9,274.2 L572.6,272.9 L601.3,272.0 L630.0,271.2" fill="none" class="s2" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="256.9" cy="287.1" r="4.5" class="f2 ring" stroke-width="2"/>
+<text x="256.9" y="257.1" class="lb ink" text-anchor="middle">Best validation 1.471</text>
+<text x="256.9" y="272.1" class="lb ink2" text-anchor="middle">at step 1,750 (best.pt)</text>
+<text x="640.0" y="275.2" class="lb ink" text-anchor="start">Validation 1.729</text>
+<text x="640.0" y="345.8" class="lb ink" text-anchor="start">Train 0.585</text>
+<text x="417.6" y="186.5" class="lb ink2" text-anchor="start">After step 1,750 the model overfits:</text>
+<text x="417.6" y="203.5" class="lb ink2" text-anchor="start">training loss keeps falling,</text>
+<text x="417.6" y="220.5" class="lb ink2" text-anchor="start">validation loss rises.</text>
+</svg>
